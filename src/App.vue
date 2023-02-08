@@ -87,6 +87,9 @@ const clickItem = item => {
           <template v-else>
             ?
           </template>
+          <a v-if="item.isFile" class="download" :download="item.fileName" :href="store.staticURL + item.relativePath">
+            👇
+          </a>
           <div class="info">
             <div class="content">
               <div class="name">
@@ -131,8 +134,19 @@ const clickItem = item => {
   background-color: #6e6e72;
 
   &:hover {
-    transform: scale(0.9);
+    transform: scale(0.97);
     transition-duration: 0.1s;
+  }
+
+  .download {
+    position: absolute;
+    display: block;
+    top: 0;
+    right: 0;
+    width: 50px;
+    height: 50px;
+    text-align: center;
+    line-height: 50px;
   }
 
   .info {
