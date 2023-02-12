@@ -1,19 +1,31 @@
 <template>
-  <div class="fork" :style="`margin-left:${deep * 20}px`">
-    <div class="item">
-      <div class="icon" @click="onclick">
+  <div v-if="dirName !== '..'"
+       class="fork"
+       :style="`margin-left:${deep * 20}px`">
+    <div class="item"
+         :title="dirName">
+      <div class="icon"
+           @click="onclick">
         {{ icon }}
       </div>
-      <span class="fileName" @click="openDir">
+      <span class="fileName"
+            @click="openDir">
         {{ dirName }}
       </span>
       <span class="ext">
         {{ safeExt(data) }}
       </span>
     </div>
-    <div class="block" v-if="!isFold && isDir">
-      <Fork v-for="item in dirs" :key="item.hash" :root="root" :data="item" :deep="deep+1" :hash="item.hash"
-            :dir-name="item.fileName" :path="`${path}/${item.fileName}`"/>
+    <div class="block"
+         v-if="!isFold && isDir">
+      <Fork v-for="item in dirs"
+            :key="item.hash"
+            :root="root"
+            :data="item"
+            :deep="deep+1"
+            :hash="item.hash"
+            :dir-name="item.fileName"
+            :path="`${path}/${item.fileName}`"/>
     </div>
   </div>
 </template>
@@ -59,7 +71,7 @@ const onclick = () => {
   if (isDir.value) {
     isFold.value = !isFold.value
   }
-  !isFold.value &&bus.emit(String(BUS_EVENT.FORK_CLICK), {
+  !isFold.value && bus.emit(String(BUS_EVENT.FORK_CLICK), {
     ...props
   })
 }

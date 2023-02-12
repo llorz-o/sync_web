@@ -6,6 +6,7 @@ import {bus} from "./vendor/bus";
 import {BUS_EVENT} from "./vendor/constants";
 import {Fancybox} from "@fancyapps/ui";
 import md5 from 'js-md5'
+import {showLoadingToast} from "vant";
 
 const store = reactive({
   data: {},
@@ -17,7 +18,9 @@ const store = reactive({
 })
 
 const fetchData = async () => {
+  const loading = showLoadingToast({message: '初始化', forbidClick: true})
   const res = await axiosInstance.get('/')
+  loading.close()
   if (res.status === 200) {
     store.data = res.data
     store.path = res.data.root
@@ -33,12 +36,14 @@ bus.on(String(BUS_EVENT.FORK_CLICK), data => {
   store.activeItem = {
     ...data
   }
+  fetchDirData()
 })
 
 const back = (item, deep) => {
   const paths = deep.path.split('/')
   paths.pop()
   store.activeItem = {...item, path: paths.join('/')}
+  fetchDirData()
 }
 
 const list = computed(() => {
@@ -52,8 +57,18 @@ const list = computed(() => {
   return []
 })
 
+const fetchDirData = async () => {
+  if (!list.value || (list.value && list.value.length === 0)) {
+    if (store.activeItem.hash) {
+      const {status, data} = await axiosInstance.get(`/?hash=${store.activeItem.hash}`)
+      if (status === 200) {
+        store.data[data.hash] = data.value
+      }
+    }
+  }
+}
 const openImageGallery = (src, type) => {
-  if(type === 'video') return Fancybox.show([{src,type}])
+  if (type === 'video') return Fancybox.show([{src, type}])
   let startIndex = 0
   const showList = list.value.filter(item => item.isFile && item.memo.mime.startsWith('image'))
       .map((item, index) => {
@@ -72,6 +87,7 @@ const enterDir = item => {
     hash: item.hash,
     path: `${store.activeItem.path}/${item.fileName}`
   }
+  fetchDirData()
 }
 const clickItem = item => {
   if (item.isDir) return enterDir(item)
@@ -99,22 +115,24 @@ const hashFileName = name => md5(name)
           {{ store.activeItem.path || '/' }}
         </span>
         <span class="itemSizeInput">
-          项目大小:<input type="text"
-                          v-model.lazy.trim.number="store.itemSize">
+          项目大小:
+          <input type="text"
+                 v-model.lazy.trim.number="store.itemSize">
         </span>
       </div>
       <div class="main"
            :style="{
         gridTemplateColumns: `repeat(auto-fill, ${store.itemSize}px)`
       }">
-        <div class="item"
-             v-for="item in list"
-             :key="item.hash || 'root'"
-             :style="{
-          width:`${store.itemSize}px`,
-          height: `${store.itemSize}px`,
-        }"
-             @click="clickItem(item)">
+        <lazy-component class="item"
+                        v-for="item in list"
+                        :title="item.fileName"
+                        :key="item.hash || 'root'"
+                        :style="{
+                          width:`${store.itemSize}px`,
+                          height: `${store.itemSize}px`
+                        }"
+                        @click="clickItem(item)">
           <template v-if="item.isBack">
             <div style="position: absolute;width: 100%;height: 100%;"
                  @click="back(item,{...store.activeItem})">
@@ -131,7 +149,8 @@ const hashFileName = name => md5(name)
                    @click="openImageGallery(getPath(store.staticURL , item.relativePath),'image')"/>
             </template>
             <template v-if="item.memo.mime.startsWith('video')">
-              <video :src="getPath(store.staticURL , item.relativePath)"
+              <video preload="none"
+                     :src="getPath(store.staticURL , item.relativePath)"
                      @click="openImageGallery(getPath(store.staticURL , item.relativePath),'video')"></video>
             </template>
           </template>
@@ -149,12 +168,17 @@ const hashFileName = name => md5(name)
               <div class="name">
                 {{ item.fileName }}
               </div>
-              <div class="mimo">
-                {{ item.memo?.mime }}
+              <div class="fileInfo">
+                <span class="mime">
+                  {{ item.memo?.mime }}
+                </span>
+                <span class="size">
+                  {{ item.size }}
+                </span>
               </div>
             </div>
           </div>
-        </div>
+        </lazy-component>
       </div>
     </div>
   </div>
@@ -187,6 +211,11 @@ const hashFileName = name => md5(name)
       margin: 0 15px;
       padding: 0 10px;
       border-radius: 5px;
+      color: #000;
+
+      &::placeholder {
+        color: #000;
+      }
     }
   }
 }
@@ -249,6 +278,26 @@ const hashFileName = name => md5(name)
     .content {
       position: relative;
       z-index: 10;
+      padding: 3px 10px;
+
+      .name {
+        font-size: 14px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .fileInfo {
+        display: flex;
+
+        .mime {
+          //flex: 1;
+        }
+
+        .size {
+          margin-left: auto;
+        }
+      }
     }
   }
 }
