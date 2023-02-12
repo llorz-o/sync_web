@@ -59,7 +59,7 @@ const onclick = () => {
   if (isDir.value) {
     isFold.value = !isFold.value
   }
-  bus.emit(String(BUS_EVENT.FORK_CLICK), {
+  !isFold.value &&bus.emit(String(BUS_EVENT.FORK_CLICK), {
     ...props
   })
 }

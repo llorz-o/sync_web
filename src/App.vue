@@ -5,12 +5,15 @@ import Fork from "./components/Fork.vue";
 import {bus} from "./vendor/bus";
 import {BUS_EVENT} from "./vendor/constants";
 import {Fancybox} from "@fancyapps/ui";
+import md5 from 'js-md5'
 
 const store = reactive({
   data: {},
   path: "",
   activeItem: {},
+  history: ['dirs'],
   staticURL: "",
+  itemSize: 250,
 })
 
 const fetchData = async () => {
@@ -32,9 +35,16 @@ bus.on(String(BUS_EVENT.FORK_CLICK), data => {
   }
 })
 
+const back = (item, deep) => {
+  const paths = deep.path.split('/')
+  paths.pop()
+  store.activeItem = {...item, path: paths.join('/')}
+}
+
 const list = computed(() => {
   if (store.activeItem) {
-    if (store.activeItem.deep === 0) return store.activeItem.data.dirs
+    if (store.activeItem.isBack) return store.activeItem.relativePath === '' ? store.data.dirs : store.data[store.activeItem.hash]
+    else if (store.activeItem.deep === 0) return store.data.dirs
     else if (store.activeItem.data && store.activeItem?.data?.isDir) return store.data[store.activeItem.hash]
     else if (store.data.isFile) return store.data
     return []
@@ -43,7 +53,15 @@ const list = computed(() => {
 })
 
 const openImageGallery = (src, type) => {
-  Fancybox.show([{src, type}])
+  if(type === 'video') return Fancybox.show([{src,type}])
+  let startIndex = 0
+  const showList = list.value.filter(item => item.isFile && item.memo.mime.startsWith('image'))
+      .map((item, index) => {
+        const _src = getPath(store.staticURL, item.relativePath)
+        if (_src === src) startIndex = index
+        return {src: _src, type}
+      })
+  Fancybox.show(showList, {startIndex})
 }
 const enterDir = item => {
   store.activeItem = {
@@ -58,36 +76,72 @@ const enterDir = item => {
 const clickItem = item => {
   if (item.isDir) return enterDir(item)
 }
+
+const getPath = (pre, suf) => {
+  return pre.replace(/\/$/g, '') + suf
+}
+
+const hashFileName = name => md5(name)
 </script>
 
 <template>
   <div class="container">
     <div class="left">
-      <Fork :root="store.data" :data="store.data" :deep="0" dir-name="root" path="root"/>
+      <Fork :root="store.data"
+            :data="store.data"
+            :deep="0"
+            dir-name="root"
+            path="root"/>
     </div>
     <div class="right">
       <div class="top">
-        {{ store.activeItem.path || '/' }}
+        <span class="path">
+          {{ store.activeItem.path || '/' }}
+        </span>
+        <span class="itemSizeInput">
+          项目大小:<input type="text"
+                          v-model.lazy.trim.number="store.itemSize">
+        </span>
       </div>
-      <div class="main">
-        <div class="item" v-for="item in list" :key="item.hash || 'root'" @click="clickItem(item)">
+      <div class="main"
+           :style="{
+        gridTemplateColumns: `repeat(auto-fill, ${store.itemSize}px)`
+      }">
+        <div class="item"
+             v-for="item in list"
+             :key="item.hash || 'root'"
+             :style="{
+          width:`${store.itemSize}px`,
+          height: `${store.itemSize}px`,
+        }"
+             @click="clickItem(item)">
+          <template v-if="item.isBack">
+            <div style="position: absolute;width: 100%;height: 100%;"
+                 @click="back(item,{...store.activeItem})">
+              ..
+            </div>
+          </template>
           <template v-if="item.isDir">
             DIR
           </template>
           <template v-if="item.memo">
             <template v-if="item.memo.mime.startsWith('image')">
-              <img :src="store.staticURL + item.relativePath" alt=""
-                   @click="openImageGallery(store.staticURL + item.relativePath,'image')"/>
+              <img :src="getPath(store.staticURL , item.relativePath)"
+                   alt=""
+                   @click="openImageGallery(getPath(store.staticURL , item.relativePath),'image')"/>
             </template>
             <template v-if="item.memo.mime.startsWith('video')">
-              <video :src="store.staticURL + item.relativePath"
-                     @click="openImageGallery(store.staticURL + item.relativePath,'video')"></video>
+              <video :src="getPath(store.staticURL , item.relativePath)"
+                     @click="openImageGallery(getPath(store.staticURL , item.relativePath),'video')"></video>
             </template>
           </template>
           <template v-else>
             ?
           </template>
-          <a v-if="item.isFile" class="download" :download="item.fileName" :href="store.staticURL + item.relativePath">
+          <a v-if="item.isFile"
+             class="download"
+             :download="hashFileName(item.fileName)"
+             :href="getPath(store.staticURL , item.relativePath)">
             👇
           </a>
           <div class="info">
@@ -106,13 +160,35 @@ const clickItem = item => {
   </div>
 </template>
 
-<style scoped lang="scss">
+<style scoped
+       lang="scss">
 .container {
   display: flex;
 }
 
 .left {
   width: 500px;
+}
+
+.top {
+  min-height: 100px;
+  padding: 10px 0;
+  display: flex;
+  justify-content: center;
+
+  .path {
+    flex: 1;
+  }
+
+  .itemSizeInput {
+    input {
+      box-sizing: content-box;
+      height: 25px;
+      margin: 0 15px;
+      padding: 0 10px;
+      border-radius: 5px;
+    }
+  }
 }
 
 .main {
@@ -157,6 +233,7 @@ const clickItem = item => {
     min-height: 50px;
     white-space: pre-wrap;
     word-break: break-all;
+    font-size: 12px;
 
     &:after {
       position: absolute;
