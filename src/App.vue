@@ -70,7 +70,7 @@ const fetchDirData = async () => {
 const openImageGallery = (src, type) => {
   if (type === 'video') return Fancybox.show([{src, type}])
   let startIndex = 0
-  const showList = list.value.filter(item => item.isFile && item.memo.mime.startsWith('image'))
+  const showList = list.value.filter(item => item.isFile && item.memo?.mime.startsWith('image'))
       .map((item, index) => {
         const _src = getPath(store.staticURL, item.relativePath)
         if (_src === src) startIndex = index
